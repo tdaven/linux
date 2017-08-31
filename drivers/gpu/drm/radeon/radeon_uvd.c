@@ -49,6 +49,8 @@
 #define FIRMWARE_SUMO		"radeon/SUMO_uvd.bin"
 #define FIRMWARE_TAHITI		"radeon/TAHITI_uvd.bin"
 #define FIRMWARE_BONAIRE_LEGACY	"radeon/BONAIRE_uvd.bin"
+#define FIRMWARE_TAHITI_NEW 	"radeon/tahiti_uvd.bin"
+
 #define FIRMWARE_BONAIRE	"radeon/bonaire_uvd.bin"
 
 MODULE_FIRMWARE(FIRMWARE_R600);
@@ -58,6 +60,7 @@ MODULE_FIRMWARE(FIRMWARE_RV710);
 MODULE_FIRMWARE(FIRMWARE_CYPRESS);
 MODULE_FIRMWARE(FIRMWARE_SUMO);
 MODULE_FIRMWARE(FIRMWARE_TAHITI);
+MODULE_FIRMWARE(FIRMWARE_TAHITI_NEW);
 MODULE_FIRMWARE(FIRMWARE_BONAIRE_LEGACY);
 MODULE_FIRMWARE(FIRMWARE_BONAIRE);
 
@@ -119,6 +122,7 @@ int radeon_uvd_init(struct radeon_device *rdev)
 	case CHIP_ARUBA:
 	case CHIP_OLAND:
 		legacy_fw_name = FIRMWARE_TAHITI;
+		fw_name = FIRMWARE_TAHITI_NEW;
 		break;
 
 	case CHIP_BONAIRE:
@@ -228,7 +232,7 @@ int radeon_uvd_init(struct radeon_device *rdev)
 void radeon_uvd_fini(struct radeon_device *rdev)
 {
 	int r;
-
+	
 	if (rdev->uvd.vcpu_bo == NULL)
 		return;
 
@@ -249,7 +253,7 @@ void radeon_uvd_fini(struct radeon_device *rdev)
 int radeon_uvd_suspend(struct radeon_device *rdev)
 {
 	int i, r;
-
+	
 	if (rdev->uvd.vcpu_bo == NULL)
 		return 0;
 
@@ -282,7 +286,7 @@ int radeon_uvd_resume(struct radeon_device *rdev)
 {
 	unsigned size;
 	void *ptr;
-
+	
 	if (rdev->uvd.vcpu_bo == NULL)
 		return -EINVAL;
 
@@ -303,7 +307,7 @@ void radeon_uvd_force_into_uvd_segment(struct radeon_bo *rbo,
 				       uint32_t allowed_domains)
 {
 	int i;
-
+	
 	for (i = 0; i < rbo->placement.num_placement; ++i) {
 		rbo->placements[i].fpfn = 0 >> PAGE_SHIFT;
 		rbo->placements[i].lpfn = (256 * 1024 * 1024) >> PAGE_SHIFT;
@@ -363,7 +367,7 @@ static int radeon_uvd_cs_msg_decode(uint32_t *msg, unsigned buf_sizes[])
 	unsigned height_in_mb = ALIGN(height / 16, 2);
 
 	unsigned image_size, tmp, min_dpb_size;
-
+	
 	image_size = width * height;
 	image_size += image_size / 2;
 	image_size = ALIGN(image_size, 1024);
@@ -471,7 +475,7 @@ static int radeon_uvd_cs_msg(struct radeon_cs_parser *p, struct radeon_bo *bo,
 	void *ptr;
 
 	int i, r;
-
+	
 	if (offset & 0x3F) {
 		DRM_ERROR("UVD messages must be 64 byte aligned!\n");
 		return -EINVAL;
@@ -578,7 +582,7 @@ static int radeon_uvd_cs_reloc(struct radeon_cs_parser *p,
 	unsigned idx, cmd, offset;
 	uint64_t start, end;
 	int r;
-
+	
 	relocs_chunk = p->chunk_relocs;
 	offset = radeon_get_ib_value(p, data0);
 	idx = radeon_get_ib_value(p, data1);
@@ -652,7 +656,7 @@ static int radeon_uvd_cs_reg(struct radeon_cs_parser *p,
 			     bool *has_msg_cmd)
 {
 	int i, r;
-
+	
 	p->idx++;
 	for (i = 0; i <= pkt->count; ++i) {
 		switch (pkt->reg + i*4) {
@@ -696,7 +700,7 @@ int radeon_uvd_cs_parse(struct radeon_cs_parser *p)
 		[0x00000002]	=	2048 * 1152 * 3,
 		[0x00000003]	=	2048,
 	};
-
+	
 	if (p->chunk_ib->length_dw % 16) {
 		DRM_ERROR("UVD IB length (%d) not 16 dwords aligned!\n",
 			  p->chunk_ib->length_dw);
@@ -743,7 +747,7 @@ static int radeon_uvd_send_msg(struct radeon_device *rdev,
 {
 	struct radeon_ib ib;
 	int i, r;
-
+	
 	r = radeon_ib_get(rdev, ring, &ib, NULL, 64);
 	if (r)
 		return r;
@@ -785,7 +789,7 @@ int radeon_uvd_get_create_msg(struct radeon_device *rdev, int ring,
 	uint64_t addr = rdev->uvd.gpu_addr + offs;
 
 	int r, i;
-
+	
 	r = radeon_bo_reserve(rdev->uvd.vcpu_bo, true);
 	if (r)
 		return r;
@@ -821,7 +825,7 @@ int radeon_uvd_get_destroy_msg(struct radeon_device *rdev, int ring,
 	uint64_t addr = rdev->uvd.gpu_addr + offs;
 
 	int r, i;
-
+	
 	r = radeon_bo_reserve(rdev->uvd.vcpu_bo, true);
 	if (r)
 		return r;
@@ -855,7 +859,7 @@ static void radeon_uvd_count_handles(struct radeon_device *rdev,
 
 	*sd = 0;
 	*hd = 0;
-
+	
 	for (i = 0; i < rdev->uvd.max_handles; ++i) {
 		if (!atomic_read(&rdev->uvd.handles[i]))
 			continue;
@@ -871,7 +875,7 @@ static void radeon_uvd_idle_work_handler(struct work_struct *work)
 {
 	struct radeon_device *rdev =
 		container_of(work, struct radeon_device, uvd.idle_work.work);
-
+	
 	if (radeon_fence_count_emitted(rdev, R600_RING_TYPE_UVD_INDEX) == 0) {
 		if ((rdev->pm.pm_method == PM_METHOD_DPM) && rdev->pm.dpm_enabled) {
 			radeon_uvd_count_handles(rdev, &rdev->pm.dpm.sd,
@@ -892,7 +896,7 @@ void radeon_uvd_note_usage(struct radeon_device *rdev)
 	bool set_clocks = !cancel_delayed_work_sync(&rdev->uvd.idle_work);
 	set_clocks &= schedule_delayed_work(&rdev->uvd.idle_work,
 					    msecs_to_jiffies(UVD_IDLE_TIMEOUT_MS));
-
+	
 	if ((rdev->pm.pm_method == PM_METHOD_DPM) && rdev->pm.dpm_enabled) {
 		unsigned hd = 0, sd = 0;
 		radeon_uvd_count_handles(rdev, &sd, &hd);
@@ -920,7 +924,7 @@ static unsigned radeon_uvd_calc_upll_post_div(unsigned vco_freq,
 					      unsigned pd_even)
 {
 	unsigned post_div = vco_freq / target_freq;
-
+	
 	/* adjust to post divider minimum value */
 	if (post_div < pd_min)
 		post_div = pd_min;
@@ -967,7 +971,7 @@ int radeon_uvd_calc_upll_dividers(struct radeon_device *rdev,
 				  unsigned *optimal_dclk_div)
 {
 	unsigned vco_freq, ref_freq = rdev->clock.spll.reference_freq;
-
+	
 	/* start off with something large */
 	unsigned optimal_score = ~0;
 
@@ -1023,7 +1027,7 @@ int radeon_uvd_send_upll_ctlreq(struct radeon_device *rdev,
 				unsigned cg_upll_func_cntl)
 {
 	unsigned i;
-
+	
 	/* make sure UPLL_CTLREQ is deasserted */
 	WREG32_P(cg_upll_func_cntl, 0, ~UPLL_CTLREQ_MASK);
 

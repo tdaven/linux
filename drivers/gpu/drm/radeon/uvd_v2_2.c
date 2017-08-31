@@ -109,8 +109,14 @@ int uvd_v2_2_resume(struct radeon_device *rdev)
 	if (r)
 		return r;
 
+	/* skip over the header of the new firmware format */
+	if (rdev->uvd.fw_header_present)
+		addr = (rdev->uvd.gpu_addr + 0x200) >> 3;
+	else
+		addr = rdev->uvd.gpu_addr >> 3;
+
 	/* programm the VCPU memory controller bits 0-27 */
-	addr = rdev->uvd.gpu_addr >> 3;
+//	addr = rdev->uvd.gpu_addr >> 3;
 	size = RADEON_GPU_PAGE_ALIGN(rdev->uvd_fw->size + 4) >> 3;
 	WREG32(UVD_VCPU_CACHE_OFFSET0, addr);
 	WREG32(UVD_VCPU_CACHE_SIZE0, size);
